@@ -1,0 +1,176 @@
+******************************************************************************************************************************************************
+To install Compose, do the following:
+******************************************************************************************************************************************************
+
+	1) install docker-engine or docker-io
+	2) install docker-compose
+
+======================================================================================================================================================
+after install docker-io:
+======================================================================================================================================================
+
+curl -L "https://github.com/docker/compose/releases/download/1.9.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+docker-compose --version
+
+or
+
+pip install docker-compose
+docker-compose --version
+
+
+======================================================================================================================================================
+to create image and container >>>
+docker-compose up -d
+
+to create image and container again ( change the storage and required things in yml file for new containers ) >>>
+docker-compose up --build
+
+to delete volumes and containers not images >>>
+docker-compose down --volumes
+======================================================================================================================================================
+
+example-1::
+
+
+======================================================================================================================================================
+docker-compose.yml >>>
+======================================================================================================================================================
+
+version: '2'
+
+services:
+   db:
+     build:
+       context: .
+     volumes:
+       - new:/var/lib/mysql
+     environment:
+       mysql_password: bizruntime
+volumes:
+   new:
+
+
+volume will create under, 
+	/var/lib/docker/volumes/compose_<<name>>
+
+======================================================================================================================================================
+dockerfile >>>
+======================================================================================================================================================
+
+
+from ubuntu:14.04
+maintainer akhil
+run apt-get update && apt-get install nano ssh -y
+copy a.sh /root/a.sh
+run chmod 777 /root/a.sh
+entrypoint [ "/root/a.sh" ]
+
+======================================================================================================================================================
+a.sh >>>
+======================================================================================================================================================
+
+
+#!/bin/bash
+debconf-set-selections <<< "mysql-server mysql-server/root_password password $mysql_password"
+debconf-set-selections <<< "mysql-server mysql-server/root_password_again password $mysql_password"
+apt-get install mysql-server mysql-client -y
+service mysql stop
+sed -i "s|bind-address|#bind-address|g" /etc/mysql/my.cnf
+service mysql restart
+tailf /var/log/apt/history.log
+
+
+
+
+
+======================================================================================================================================================
+
+example-2::
+
+======================================================================================================================================================
+docker-compose.yml >>>
+======================================================================================================================================================
+
+
+version: '2'
+
+services:
+   db:
+     build:
+       context: .
+     volumes:
+       - mysql1:/var/lib/mysql
+     environment:
+       mysql_password: wordpress
+       WORDPRESS_DB_USER: wordpress
+       WORDPRESS_DB_PASSWORD: wordpress
+       WORDPRESS_DB_NAME: wordpress
+     restart: always
+     command: /root/a.sh
+
+   wordpress:
+     depends_on:
+       - db
+     image: wordpress:latest
+     ports:
+       - "8000:80"
+     restart: always
+     environment:
+       WORDPRESS_DB_HOST: db:3306
+       WORDPRESS_DB_USER: wordpress
+       WORDPRESS_DB_PASSWORD: wordpress
+       WORDPRESS_DB_NAME: wordpress
+
+volumes:
+   mysql1:
+
+======================================================================================================================================================
+dockerfile >>>
+======================================================================================================================================================
+
+
+from ubuntu:14.04
+maintainer akhil
+run apt-get update && apt-get install nano ssh -y
+copy a.sh /root/a.sh
+run chmod 777 /root/a.sh
+#entrypoint [ "/root/a.sh" ]
+
+
+======================================================================================================================================================
+a.sh >>>
+======================================================================================================================================================
+
+
+#!/bin/bash
+debconf-set-selections <<< "mysql-server mysql-server/root_password password $mysql_password"
+debconf-set-selections <<< "mysql-server mysql-server/root_password_again password $mysql_password"
+apt-get install mysql-server mysql-client -y
+service mysql stop
+sed -i "s|bind-address|#bind-address|g" /etc/mysql/my.cnf
+service mysql restart && sleep 30
+
+mysql -u root -p$mysql_password << EOF
+CREATE USER '$WORDPRESS_DB_USER'@'%' IDENTIFIED BY '$WORDPRESS_DB_PASSWORD';
+CREATE DATABASE $WORDPRESS_DB_NAME;
+GRANT ALL PRIVILEGES ON $WORDPRESS_DB_NAME.* TO '$WORDPRESS_DB_USER'@'%';
+FLUSH PRIVILEGES;
+EOF
+
+service mysql restart
+tailf /var/log/apt/history.log
+
+
+
+
+
+
+======================================================================================================================================================
+links >>>
+======================================================================================================================================================
+
+https://docs.docker.com/compose/overview/
+
+
+
